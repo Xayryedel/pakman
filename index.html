@@ -32,11 +32,16 @@
             border: 4px solid #1919A6;
             border-radius: 8px;
             overflow: hidden;
+            max-width: 100%;
+            max-height: 80vh;
         }
 
         canvas {
             display: block;
             background-color: #000;
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
         }
 
         .ui-panel {
@@ -125,7 +130,7 @@
     </div>
 
     <div id="game-container">
-        <canvas id="gameCanvas" width="448" height="496"></canvas>
+        <canvas id="gameCanvas" width="448" height="480"></canvas>
         <div class="overlay" id="startOverlay">
             <h1>PAC-MAN</h1>
             <p>Собери все точки, избегая призраков!</p>
@@ -193,17 +198,17 @@
             nextDx: 0,
             nextDy: 0,
             radius: tileSize / 2 - 2,
-            speed: 2,
+            speed: 0.08,
             mouthOpen: 0,
             mouthDir: 1,
             color: '#ffff00'
         };
 
         const ghosts = [
-            { x: 6, y: 7, dx: 0, dy: 0, color: '#ff0000', startX: 6, startY: 7, mode: 'chase', speed: 1.5 },
-            { x: 7, y: 7, dx: 0, dy: 0, color: '#ffb8ff', startX: 7, startY: 7, mode: 'scatter', speed: 1.5 },
-            { x: 6, y: 8, dx: 0, dy: 0, color: '#00ffff', startX: 6, startY: 8, mode: 'chase', speed: 1.5 },
-            { x: 7, y: 8, dx: 0, dy: 0, color: '#ffb852', startX: 7, startY: 8, mode: 'scatter', speed: 1.5 }
+            { x: 6, y: 7, dx: 0, dy: 0, color: '#ff0000', startX: 6, startY: 7, mode: 'chase', speed: 0.055 },
+            { x: 7, y: 7, dx: 0, dy: 0, color: '#ffb8ff', startX: 7, startY: 7, mode: 'scatter', speed: 0.05 },
+            { x: 6, y: 8, dx: 0, dy: 0, color: '#00ffff', startX: 6, startY: 8, mode: 'chase', speed: 0.045 },
+            { x: 7, y: 8, dx: 0, dy: 0, color: '#ffb852', startX: 7, startY: 8, mode: 'scatter', speed: 0.05 }
         ];
 
         const dirs = [
@@ -243,64 +248,46 @@
         }
 
         function canMove(x, y, dx, dy) {
-            const nextX = x + dx;
-            const nextY = y + dy;
-            
-            const checkX = nextX + (dx > 0 ? pacman.radius : -pacman.radius);
-            const checkY = nextY + (dy > 0 ? pacman.radius : -pacman.radius);
-            
             if (dx !== 0) {
-                const c = dx > 0 ? Math.floor(nextX + pacman.radius) : Math.floor(nextX - pacman.radius);
-                if (isWall(c, y)) return false;
+                const nextX = x + dx;
+                const checkEdge = dx > 0 ? nextX + pacman.radius : nextX - pacman.radius;
+                return !isWall(checkEdge, y);
             }
             if (dy !== 0) {
-                const r = dy > 0 ? Math.floor(nextY + pacman.radius) : Math.floor(nextY - pacman.radius);
-                if (isWall(x, r)) return false;
+                const nextY = y + dy;
+                const checkEdge = dy > 0 ? nextY + pacman.radius : nextY - pacman.radius;
+                return !isWall(x, checkEdge);
             }
-            return true;
+            return false;
         }
 
         function updatePacman() {
-            const tx = Math.floor(pacman.x);
-            const ty = Math.floor(pacman.y);
+            if (pacman.nextDx !== 0 || pacman.nextDy !== 0) {
+                const testX = pacman.x + pacman.nextDx * pacman.speed;
+                const testY = pacman.y + pacman.nextDy * pacman.speed;
+                if (canMove(pacman.x, pacman.y, testX - pacman.x, testY - pacman.y)) {
+                    pacman.dx = pacman.nextDx;
+                    pacman.dy = pacman.nextDy;
+                }
+            }
 
-            if (pacman.x % 1 < 0.1 && pacman.y % 1 < 0.1) {
-                pacman.x = tx;
-                pacman.y = ty;
+            if (pacman.dx !== 0 || pacman.dy !== 0) {
+                const nextX = pacman.x + pacman.dx * pacman.speed;
+                const nextY = pacman.y + pacman.dy * pacman.speed;
                 
-                if (pacman.nextDx !== 0 || pacman.nextDy !== 0) {
-                    const nx = pacman.x + pacman.nextDx;
-                    const ny = pacman.y + pacman.nextDy;
-                    if (!isWall(nx, ny)) {
-                        pacman.dx = pacman.nextDx;
-                        pacman.dy = pacman.nextDy;
-                    }
+                if (canMove(pacman.x, pacman.y, pacman.dx * pacman.speed, 0) && pacman.dx !== 0) {
+                    pacman.x = nextX;
                 }
-
-                if (isWall(pacman.x + pacman.dx, pacman.y + pacman.dy)) {
-                    pacman.dx = 0;
-                    pacman.dy = 0;
+                if (canMove(pacman.x, pacman.y, 0, pacman.dy * pacman.speed) && pacman.dy !== 0) {
+                    pacman.y = nextY;
                 }
             }
 
-            const speed = pacman.speed * 0.05;
-            
-            if (pacman.dx !== 0) {
-                if (canMove(pacman.x, pacman.y, pacman.dx * speed, 0)) {
-                    pacman.x += pacman.dx * speed;
-                }
-            }
-            if (pacman.dy !== 0) {
-                if (canMove(pacman.x, pacman.y, 0, pacman.dy * speed)) {
-                    pacman.y += pacman.dy * speed;
-                }
-            }
-
-            pacman.mouthOpen += pacman.mouthDir * 0.2;
+            pacman.mouthOpen += pacman.mouthDir * 0.15;
             if (pacman.mouthOpen > 1 || pacman.mouthOpen < 0) pacman.mouthDir *= -1;
 
-            const pCol = Math.floor(pacman.x);
-            const pRow = Math.floor(pacman.y);
+            const pCol = Math.floor(pacman.x + 0.5);
+            const pRow = Math.floor(pacman.y + 0.5);
 
             for (let i = dots.length - 1; i >= 0; i--) {
                 if (dots[i].x === pCol && dots[i].y === pRow) {
@@ -315,7 +302,7 @@
                     powerPellets.splice(i, 1);
                     score += 50;
                     updateScore();
-                    powerModeTimer = 500;
+                    powerModeTimer = 400;
                     ghosts.forEach(g => {
                         g.mode = 'frightened';
                         g.dx = -g.dx;
@@ -340,7 +327,7 @@
             }
 
             ghosts.forEach(g => {
-                const currentSpeed = g.mode === 'frightened' ? 1 : g.speed;
+                const currentSpeed = g.mode === 'frightened' ? 0.03 : g.speed;
                 
                 if (g.x % 1 < 0.1 && g.y % 1 < 0.1) {
                     g.x = Math.floor(g.x);
@@ -384,9 +371,8 @@
                     }
                 }
 
-                const speedFactor = currentSpeed * 0.05;
-                if (g.dx !== 0 && !isWall(g.x + g.dx * speedFactor, g.y)) g.x += g.dx * speedFactor;
-                if (g.dy !== 0 && !isWall(g.x, g.y + g.dy * speedFactor)) g.y += g.dy * speedFactor;
+                if (g.dx !== 0 && !isWall(g.x + g.dx * currentSpeed, g.y)) g.x += g.dx * currentSpeed;
+                if (g.dy !== 0 && !isWall(g.x, g.y + g.dy * currentSpeed)) g.y += g.dy * currentSpeed;
 
                 const distToPacman = Math.hypot(g.x - pacman.x, g.y - pacman.y);
                 if (distToPacman < 0.7) {
